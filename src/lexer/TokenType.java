@@ -8,5 +8,6 @@ public enum TokenType {
     STRING,
     RESERVED,
     COMPARISON,
+    SEMICOLON,
     UNKNOWN
 }

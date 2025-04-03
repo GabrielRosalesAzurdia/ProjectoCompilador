@@ -1,5 +1,7 @@
+import ast.Node;
 import lexer.Lexer;
 import lexer.Token;
+import parser.Parser;
 import symboltable.Symbol;
 import symboltable.SymbolTable;
 
@@ -91,15 +93,20 @@ public class CompilerGUI extends JFrame {
                 }
                 symbolTableOutput.setText(symbolTableBuilder.toString());
 
-                // Aquí puedes integrar el resto de los analizadores.
-                parserOutput.setText("Resultados del analizador sintáctico aquí...");
+                // Analiza sintáctico
+                Parser parser = new Parser(lexer); // Crear el parser
+                Node astRoot = parser.parse(); // Analizar el código
+                parserOutput.setText(astRoot.toString()); // Mostrar el AST como resultado
+
+                // Aquí puedes integrar el analizador semántico si es necesario.
                 semanticOutput.setText("Resultados del analizador semántico aquí...");
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(this, "Error al cargar el archivo: " + ex.getMessage());
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error en el análisis: " + ex.getMessage());
             }
         }
     }
-
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> new CompilerGUI());
     }
