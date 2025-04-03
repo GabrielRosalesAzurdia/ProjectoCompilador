@@ -16,7 +16,7 @@ public class TryCatchStatement extends Node {
         return "TryCatchStatement{" +
                 "tryBlock=" + tryBlock +
                 ", catchClauses=" + catchClauses +
-                '}';
+                '}'+'\n';
     }
 }
 
@@ -34,6 +34,6 @@ class CatchClause extends Node {
         return "CatchClause{" +
                 "exceptionVariable='" + exceptionVariable + '\'' +
                 ", body=" + body +
-                '}';
+                '}'+'\n';
     }
 }

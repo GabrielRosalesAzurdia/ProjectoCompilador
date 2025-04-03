@@ -17,6 +17,6 @@ public class IfStatement extends Node {
                 "condition=" + condition +
                 ", thenBranch=" + thenBranch +
                 (elseBranch != null ? ", elseBranch=" + elseBranch : "") +
-                '}';
+                '}'+'\n';
     }
 }

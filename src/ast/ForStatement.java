@@ -20,6 +20,6 @@ public class ForStatement extends Node {
                 ", condition=" + condition +
                 ", update=" + update +
                 ", body=" + body +
-                '}';
+                '}' + '\n';
     }
 }

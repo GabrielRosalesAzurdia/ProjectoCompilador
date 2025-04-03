@@ -9,5 +9,6 @@ public enum TokenType {
     RESERVED,
     COMPARISON,
     SEMICOLON,
+    EOF,
     UNKNOWN
 }

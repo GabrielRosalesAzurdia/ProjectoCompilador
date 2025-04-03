@@ -14,6 +14,6 @@ public class WhileStatement extends Node {
         return "WhileStatement{" +
                 "condition=" + condition +
                 ", body=" + body +
-                '}';
+                '}'+'\n';
     }
 }

@@ -12,6 +12,6 @@ public class LiteralExpression extends Expression {
     public String toString() {
         return "LiteralExpression{" +
                 "value=" + value +
-                '}';
+                '}'+'\n';
     }
 }

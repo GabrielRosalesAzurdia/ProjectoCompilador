@@ -16,7 +16,7 @@ public class SwitchStatement extends Node {
         return "SwitchStatement{" +
                 "expression=" + expression +
                 ", cases=" + cases +
-                '}';
+                '}'+'\n';
     }
 }
 
@@ -34,6 +34,6 @@ class CaseStatement extends Node {
         return "CaseStatement{" +
                 "caseValue=" + caseValue +
                 ", body=" + body +
-                '}';
+                '}'+'\n';
     }
 }

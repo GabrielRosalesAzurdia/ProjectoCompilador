@@ -14,6 +14,6 @@ public class UnaryExpression extends Expression {
         return "UnaryExpression{" +
                 "operator='" + operator + '\'' +
                 ", operand=" + operand +
-                '}';
+                '}'+'\n';
     }
 }

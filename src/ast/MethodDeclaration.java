@@ -22,6 +22,6 @@ public class MethodDeclaration extends Node {
                 ", name='" + name + '\'' +
                 ", parameters=" + parameters +
                 ", body=" + body +
-                '}';
+                '}'+'\n';
     }
 }

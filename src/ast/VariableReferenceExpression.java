@@ -12,6 +12,6 @@ public class VariableReferenceExpression extends Expression {
     public String toString() {
         return "VariableReferenceExpression{" +
                 "name='" + name + '\'' +
-                '}';
+                '}'+'\n';
     }
 }

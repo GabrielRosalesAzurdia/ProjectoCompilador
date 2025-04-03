@@ -1,6 +1,6 @@
 package ast;
 
-public class Assignment extends Node {
+public class Assignment extends Expression {
     public String identifier;
     public Node value;
 
@@ -14,6 +14,6 @@ public class Assignment extends Node {
         return "Assignment{" +
                 "identifier='" + identifier + '\'' +
                 ", value=" + value +
-                '}';
+                '}' + '\n';
     }
 }

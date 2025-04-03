@@ -21,8 +21,11 @@ public class Lexer {
 
     private static final Set<String> RESERVED_WORDS = new HashSet<>(Arrays.asList(
             "if", "else", "for", "while", "do", "switch", "case", "break", "continue",
-            "return", "public", "private", "protected", "class", "static", "void", "int",
-            "float", "double", "char", "boolean", "String", "try", "catch", "finally"
+            "return", "public", "private", "protected", "class", "static", "void", "try", "catch", "finally"
+    ));
+
+    private static final Set<String> DATA_TYPES = new HashSet<>(Arrays.asList(
+            "int", "float", "double", "char", "boolean", "String", "void"
     ));
 
     public Lexer(String input) {
@@ -47,14 +50,13 @@ public class Lexer {
             } else if (matcher.group(3) != null) { // Identificadores y palabras clave
                 String identifier = matcher.group(3);
 
-                if (RESERVED_WORDS.contains(identifier)) {
+                if (DATA_TYPES.contains(identifier)) {
+                    tokens.add(new Token(TokenType.DATA_TYPE, identifier));
+                    lastDataType = identifier;
+                    expectIdentifier = true;
+                } else if (RESERVED_WORDS.contains(identifier)) {
                     tokens.add(new Token(TokenType.RESERVED, identifier));
-
-                    // Manejo de tipos de datos
-                    if (isDataType(identifier)) {
-                        lastDataType = identifier;
-                        expectIdentifier = true;
-                    } else if (identifier.equals("class")) {
+                    if (identifier.equals("class")) {
                         // Incrementar el ámbito al declarar una clase
                         currentScope++;
                     }
@@ -82,7 +84,7 @@ public class Lexer {
                 if (operator.equals("=")) {
                     lastDataType = null; // Resetear tipo al asignar
                 }
-            }else if (matcher.group(5) != null) { // Caracteres desconocidos
+            } else if (matcher.group(5) != null) { // Caracteres desconocidos
                 tokens.add(new Token(TokenType.UNKNOWN, matcher.group(5)));
             }
         }
@@ -91,10 +93,6 @@ public class Lexer {
         currentScope--;
 
         return tokens;
-    }
-
-    private boolean isDataType(String identifier) {
-        return identifier.matches("int|float|double|char|boolean|String");
     }
 
     public SymbolTable getSymbolTable() {

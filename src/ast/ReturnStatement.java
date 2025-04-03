@@ -11,6 +11,6 @@ public class ReturnStatement extends Node {
     public String toString() {
         return "ReturnStatement{" +
                 "value=" + value +
-                '}';
+                '}'+'\n';
     }
 }

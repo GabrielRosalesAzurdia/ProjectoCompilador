@@ -11,6 +11,6 @@ public class ExpressionStatement extends Node {
     public String toString() {
         return "ExpressionStatement{" +
                 "expression=" + expression +
-                '}';
+                '}'+ '\n';
     }
 }

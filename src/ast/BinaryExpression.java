@@ -1,10 +1,9 @@
 package ast;
 
-// Ejemplo de una expresión aritmética
 public class BinaryExpression extends Expression {
-    public Expression left; // Operando izquierdo
-    public String operator;  // Operador (por ejemplo, +, -, *, /)
-    public Expression right; // Operando derecho
+    private final Expression left;
+    private final String operator;
+    private final Expression right;
 
     public BinaryExpression(Expression left, String operator, Expression right) {
         this.left = left;
@@ -12,12 +11,20 @@ public class BinaryExpression extends Expression {
         this.right = right;
     }
 
+    public Expression getLeft() {
+        return left;
+    }
+
+    public String getOperator() {
+        return operator;
+    }
+
+    public Expression getRight() {
+        return right;
+    }
+
     @Override
     public String toString() {
-        return "BinaryExpression{" +
-                "left=" + left +
-                ", operator='" + operator + '\'' +
-                ", right=" + right +
-                '}';
+        return "(" + left + " " + operator + " " + right + ")" + '\n';
     }
 }

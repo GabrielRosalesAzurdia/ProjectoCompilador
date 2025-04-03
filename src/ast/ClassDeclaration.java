@@ -16,6 +16,6 @@ public class ClassDeclaration extends Node {
         return "ClassDeclaration{" +
                 "name='" + name + '\'' +
                 ", methods=" + methods +
-                '}';
+                '}' + '\n';
     }
 }

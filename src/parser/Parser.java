@@ -17,16 +17,22 @@ public class Parser {
     }
 
     private Token currentToken() {
+        if (currentTokenIndex >= tokens.size()) {
+            return new Token(TokenType.EOF, ""); // Retornar un token especial en lugar de lanzar una excepción
+        }
         return tokens.get(currentTokenIndex);
     }
-
     private void consume(TokenType type) {
+        if (currentTokenIndex >= tokens.size()) {
+            throw new RuntimeException("Error: Intento de consumir un token fuera del rango.");
+        }
         if (currentToken().getType() == type) {
             currentTokenIndex++;
         } else {
             throw new RuntimeException("Unexpected token: " + currentToken());
         }
     }
+
 
     public Node parse() {
         return program();
@@ -35,6 +41,7 @@ public class Parser {
     private Node program() {
         List<Node> statements = new ArrayList<>();
         while (currentTokenIndex < tokens.size()) {
+            if (currentTokenIndex >= tokens.size()) break; // Evita sobrepasar el límite
             statements.add(statement());
         }
         return new BlockStatement(statements);
@@ -54,9 +61,10 @@ public class Parser {
         } else if (currentToken().getValue().equals("return")) {
             return returnStatement(); // Declaración return
         } else {
-            throw new RuntimeException("Unexpected statement: " + currentToken());
+            return expressionStatement(); // 🚀 Nuevo: Manejo de expresiones sueltas
         }
     }
+
 
     private MethodDeclaration methodDeclaration() {
         String returnType = currentToken().getValue(); // Tipo de retorno
@@ -127,27 +135,36 @@ public class Parser {
     }
 
     private Node expressionStatement() {
-        Expression expr = expression();
-        consume(TokenType.SEMICOLON); // Consumir ';'
+        Expression expr = expression();  // Evaluar expresión
+        consume(TokenType.SEMICOLON);   // Consumir ';'
         return new ExpressionStatement(expr);
     }
 
     private Node ifStatement() {
-        consume(TokenType.IDENTIFIER); // Consumir 'if'
+        consume(TokenType.RESERVED); // Consumir 'if'
         consume(TokenType.OPERATOR); // Consumir '('
+
         Expression condition = expression(); // Obtener la condición
+
+        // Evitar que la condición sea una asignación
+        if (condition instanceof Assignment) {
+            throw new RuntimeException("Syntax error: Assignment '=' is not allowed in if conditions. Use '==' instead.");
+        }
+
         consume(TokenType.OPERATOR); // Consumir ')'
 
         BlockStatement thenBranch = (BlockStatement) blockStatement(); // Cuerpo del if
 
         BlockStatement elseBranch = null;
         if (currentToken().getValue().equals("else")) {
-            consume(TokenType.IDENTIFIER); // Consumir 'else'
+            consume(TokenType.RESERVED); // Consumir 'else'
             elseBranch = (BlockStatement) blockStatement(); // Cuerpo del else
         }
 
         return new IfStatement(condition, thenBranch, elseBranch);
     }
+
+
 
     private Node whileStatement() {
         consume(TokenType.IDENTIFIER); // Consumir 'while'
@@ -184,18 +201,55 @@ public class Parser {
     private BlockStatement blockStatement() {
         List<Node> statements = new ArrayList<>();
         consume(TokenType.OPERATOR); // Consumir '{'
-        while (currentToken().getType() != TokenType.OPERATOR || !currentToken().getValue().equals("}")) {
+        while (currentTokenIndex < tokens.size()) {
+            if (currentToken().getType() == TokenType.OPERATOR && currentToken().getValue().equals("}")) {
+                break; // Salir del bucle si encontramos el cierre del bloque
+            }
             statements.add(statement());
         }
         consume(TokenType.OPERATOR); // Consumir '}'
-        return new BlockStatement(statements); // Asegúrate de devolver un BlockStatement
+        return new BlockStatement(statements);
     }
 
     private Expression expression() {
-        // Aquí puedes implementar la lógica para manejar expresiones
-        // Por simplicidad, asumiremos que solo manejamos referencias a variables por ahora
-        String identifier = currentToken().getValue();
-        consume(TokenType.IDENTIFIER);
-        return new VariableReference(identifier);
+        Expression left = primaryExpression(); // Obtener el primer operando
+
+        // Si el siguiente token es un operador de comparación, construir una expresión binaria
+        if (currentToken().getType() == TokenType.COMPARISON) {
+            String operator = currentToken().getValue(); // Obtener operador (==, <, >, etc.)
+            consume(TokenType.COMPARISON); // Consumir el operador
+
+            Expression right = primaryExpression(); // Obtener el segundo operando
+            return new BinaryExpression(left, operator, right); // Crear la expresión binaria
+        }
+
+        return left; // Si no hay operador de comparación, devolver la expresión simple
     }
+
+    private Expression primaryExpression() {
+        Token token = currentToken();
+
+        if (token.getType() == TokenType.IDENTIFIER) {
+            String identifier = token.getValue();
+            consume(TokenType.IDENTIFIER);
+
+            // Si hay un '=', es una asignación
+            if (currentToken().getType() == TokenType.OPERATOR && currentToken().getValue().equals("=")) {
+                consume(TokenType.OPERATOR); // Consumir '='
+                Expression value = expression(); // Obtener la expresión asignada
+                return new Assignment(identifier, value);
+            }
+
+            return new VariableReference(identifier);
+        } else if (token.getType() == TokenType.NUMBER) {
+            consume(TokenType.NUMBER);
+            return new NumberLiteral(Integer.parseInt(token.getValue()));
+        } else if (token.getType() == TokenType.STRING) {
+            consume(TokenType.STRING);
+            return new StringLiteral(token.getValue());
+        } else {
+            throw new RuntimeException("Unexpected token in expression: " + token);
+        }
+    }
+
 }

@@ -17,6 +17,6 @@ public class VariableDeclaration extends Node {
                 "type='" + type + '\'' +
                 ", identifier='" + identifier + '\'' +
                 ", initializer=" + initializer +
-                '}';
+                '}'+'\n';
     }
 }

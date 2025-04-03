@@ -13,6 +13,6 @@ public class BlockStatement extends Node {
     public String toString() {
         return "BlockStatement{" +
                 "statements=" + statements +
-                '}';
+                '}' + '\n';
     }
 }
