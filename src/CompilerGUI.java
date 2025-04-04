@@ -108,6 +108,6 @@ public class CompilerGUI extends JFrame {
         }
     }
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new CompilerGUI());
+        SwingUtilities.invokeLater(CompilerGUI::new);
     }
 }

@@ -67,33 +67,39 @@ public class Parser {
 
 
     private MethodDeclaration methodDeclaration() {
-        String returnType = currentToken().getValue(); // Tipo de retorno
-        consume(TokenType.DATA_TYPE); // Consumir tipo de retorno
+        String returnType = null;
+        String methodName;
 
-        String methodName = currentToken().getValue(); // Nombre del método
-        consume(TokenType.IDENTIFIER); // Consumir nombre del método
+        // Puede empezar con tipo de dato o nombre de clase (para constructor)
+        if (currentToken().getType() == TokenType.DATA_TYPE) {
+            returnType = currentToken().getValue();
+            consume(TokenType.DATA_TYPE);
+        }
 
-        consume(TokenType.OPERATOR); // Consumir '('
+        methodName = currentToken().getValue(); // Nombre del método o constructor
+        consume(TokenType.IDENTIFIER);
+
+        consume(TokenType.OPERATOR); // '('
+
         List<VariableDeclaration> parameters = new ArrayList<>();
-
-        // Manejar parámetros (opcional)
         while (currentToken().getType() != TokenType.OPERATOR || !currentToken().getValue().equals(")")) {
-            String paramType = currentToken().getValue(); // Tipo del parámetro
-            consume(TokenType.DATA_TYPE); // Consumir tipo del parámetro
+            String paramType = currentToken().getValue();
+            consume(TokenType.DATA_TYPE);
 
-            String paramName = currentToken().getValue(); // Nombre del parámetro
-            consume(TokenType.IDENTIFIER); // Consumir nombre del parámetro
+            String paramName = currentToken().getValue();
+            consume(TokenType.IDENTIFIER);
 
-            parameters.add(new VariableDeclaration(paramType, paramName, null)); // Agregar el parámetro
+            parameters.add(new VariableDeclaration(paramType, paramName, null));
+
             if (currentToken().getValue().equals(",")) {
-                consume(TokenType.OPERATOR); // Consumir ',' si hay más parámetros
+                consume(TokenType.OPERATOR);
             }
         }
 
-        consume(TokenType.OPERATOR); // Consumir ')'
-        BlockStatement body = blockStatement(); // Obtener el cuerpo del método
+        consume(TokenType.OPERATOR); // ')'
+        BlockStatement body = blockStatement();
 
-        return new MethodDeclaration(returnType, methodName, parameters, body); // Crear y devolver la declaración del método
+        return new MethodDeclaration(returnType, methodName, parameters, body);
     }
 
     private ClassDeclaration classDeclaration() {
@@ -101,20 +107,55 @@ public class Parser {
         String className = currentToken().getValue(); // Nombre de la clase
         consume(TokenType.IDENTIFIER); // Consumir el nombre de la clase
 
-        // Aquí manejas la apertura de llaves y las declaraciones de métodos dentro de la clase.
+        List<VariableDeclaration> attributes = new ArrayList<>();
         List<MethodDeclaration> methods = new ArrayList<>();
         consume(TokenType.OPERATOR); // Consumir '{'
 
         while (currentToken().getType() != TokenType.OPERATOR || !currentToken().getValue().equals("}")) {
-            if (currentToken().getType() == TokenType.DATA_TYPE) {
-                methods.add(methodDeclaration()); // Agregar métodos
+
+            // Soporte para modificadores como 'public'
+            boolean hasModifier = false;
+            if (currentToken().getType() == TokenType.RESERVED &&
+                    (currentToken().getValue().equals("public") || currentToken().getValue().equals("private") || currentToken().getValue().equals("protected"))) {
+                consume(TokenType.RESERVED); // Consumir el modificador
+                hasModifier = true;
+            }
+
+            // Comprobamos si es un método, constructor o atributo
+            if (currentToken().getType() == TokenType.DATA_TYPE || currentToken().getType() == TokenType.IDENTIFIER) {
+                int tempIndex = currentTokenIndex;
+                String first = currentToken().getValue();
+                consume(currentToken().getType());
+
+                if (currentToken().getType() == TokenType.IDENTIFIER) {
+                    String second = currentToken().getValue();
+                    consume(TokenType.IDENTIFIER);
+
+                    if (currentToken().getValue().equals("(")) {
+                        // Es un método
+                        currentTokenIndex = tempIndex;
+                        methods.add(methodDeclaration());
+                    } else {
+                        // Es un atributo
+                        currentTokenIndex = tempIndex;
+                        attributes.add(variableDeclaration());
+                    }
+                } else if (currentToken().getValue().equals("(")) {
+                    // Es un constructor
+                    currentTokenIndex = tempIndex;
+                    methods.add(methodDeclaration()); // Constructor se trata igual que un método sin tipo de retorno
+                } else {
+                    throw new RuntimeException("Expected identifier or '(' after type/name in class body.");
+                }
+
             } else {
                 throw new RuntimeException("Unexpected token in class body: " + currentToken());
             }
         }
 
+
         consume(TokenType.OPERATOR); // Consumir '}'
-        return new ClassDeclaration(className, methods); // Crear y devolver la clase
+        return new ClassDeclaration(className, attributes, methods);
     }
 
     private VariableDeclaration variableDeclaration() {
@@ -229,18 +270,30 @@ public class Parser {
     private Expression primaryExpression() {
         Token token = currentToken();
 
-        if (token.getType() == TokenType.IDENTIFIER) {
-            String identifier = token.getValue();
-            consume(TokenType.IDENTIFIER);
+        Expression expr;
 
-            // Si hay un '=', es una asignación
+        if (token.getType() == TokenType.IDENTIFIER || token.getValue().equals("this")) {
+            String identifier = token.getValue();
+            consume(token.getType()); // Consumir 'IDENTIFIER' o 'this'
+            expr = new VariableReference(identifier);
+
+            // Soportar acceso a campos con '.'
+            while (currentToken().getType() == TokenType.OPERATOR && currentToken().getValue().equals(".")) {
+                consume(TokenType.OPERATOR); // Consumir '.'
+
+                String fieldName = currentToken().getValue();
+                consume(TokenType.IDENTIFIER); // Consumir el identificador
+                expr = new FieldAccess(expr, fieldName);
+            }
+
+            // Soportar asignaciones
             if (currentToken().getType() == TokenType.OPERATOR && currentToken().getValue().equals("=")) {
                 consume(TokenType.OPERATOR); // Consumir '='
                 Expression value = expression(); // Obtener la expresión asignada
-                return new Assignment(identifier, value);
+                return new AssignmentExpression(expr, value);
             }
 
-            return new VariableReference(identifier);
+            return expr;
         } else if (token.getType() == TokenType.NUMBER) {
             consume(TokenType.NUMBER);
             return new NumberLiteral(Integer.parseInt(token.getValue()));
@@ -251,5 +304,6 @@ public class Parser {
             throw new RuntimeException("Unexpected token in expression: " + token);
         }
     }
+
 
 }

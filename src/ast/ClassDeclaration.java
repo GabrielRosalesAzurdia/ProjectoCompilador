@@ -3,19 +3,15 @@ package ast;
 import java.util.List;
 
 public class ClassDeclaration extends Node {
-    public String name;
-    public List<MethodDeclaration> methods; // Lista de métodos
+    private String name;
+    private List<VariableDeclaration> attributes;
+    private List<MethodDeclaration> methods;
 
-    public ClassDeclaration(String name, List<MethodDeclaration> methods) {
+    public ClassDeclaration(String name, List<VariableDeclaration> attributes, List<MethodDeclaration> methods) {
         this.name = name;
+        this.attributes = attributes;
         this.methods = methods;
     }
 
-    @Override
-    public String toString() {
-        return "ClassDeclaration{" +
-                "name='" + name + '\'' +
-                ", methods=" + methods +
-                '}' + '\n';
-    }
+    // Getters, toString(), etc.
 }
