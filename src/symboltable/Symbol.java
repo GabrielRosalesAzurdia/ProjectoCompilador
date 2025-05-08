@@ -3,9 +3,9 @@ package symboltable;
 public class Symbol {
     private String name;
     private String type;
-    private int scope;
+    private String scope;
 
-    public Symbol(String name, String type, int scope) {
+    public Symbol(String name, String type, String scope) {
         this.name = name;
         this.type = type;
         this.scope = scope;
@@ -20,12 +20,12 @@ public class Symbol {
         return type;
     }
 
-    public int getScope() {
+    public String getScope() {
         return scope;
     }
 
     @Override
     public String toString() {
-        return "Symbol{name='" + name + "', type='" + type + "', scope=" + scope + "}";
+        return "Symbol{name='" + name + "', type='" + type + "', scope='" + scope + "'}";
     }
 }

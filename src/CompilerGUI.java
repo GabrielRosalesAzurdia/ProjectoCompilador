@@ -24,7 +24,7 @@ public class CompilerGUI extends JFrame {
 
     public CompilerGUI() {
         setTitle("Compilador Java");
-        setSize(800, 600);
+        setSize(1000, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new GridLayout(1, 4));
 
@@ -38,6 +38,7 @@ public class CompilerGUI extends JFrame {
         add(createPanel("Analizador Sintáctico", parserOutput));
         add(createPanel("Analizador Semántico", semanticOutput));
 
+        JMenuBar menuBar = new JMenuBar();
         JButton loadButton = new JButton("Cargar Archivo");
         loadButton.addActionListener(new ActionListener() {
             @Override
@@ -45,8 +46,8 @@ public class CompilerGUI extends JFrame {
                 loadFile();
             }
         });
-
-        add(loadButton);
+        menuBar.add(loadButton);
+        setJMenuBar(menuBar);
 
         setVisible(true);
     }
@@ -72,18 +73,18 @@ public class CompilerGUI extends JFrame {
                 }
                 String code = content.toString();
 
-                // Analiza léxico
+                // Análisis léxico
                 Lexer lexer = new Lexer(code);
                 List<Token> tokens = lexer.tokenize();
 
-                // Mostrar los tokens
+                // Mostrar tokens
                 StringBuilder lexerOutputBuilder = new StringBuilder();
                 for (Token token : tokens) {
                     lexerOutputBuilder.append(token).append("\n");
                 }
                 lexerOutput.setText(lexerOutputBuilder.toString());
 
-                // Mostrar la tabla de símbolos
+                // Obtener la tabla de símbolos
                 SymbolTable symbolTable = lexer.getSymbolTable();
                 StringBuilder symbolTableBuilder = new StringBuilder();
                 for (Symbol symbol : symbolTable.getAllSymbols().values()) {
@@ -93,13 +94,28 @@ public class CompilerGUI extends JFrame {
                 }
                 symbolTableOutput.setText(symbolTableBuilder.toString());
 
-                // Analiza sintáctico
-                Parser parser = new Parser(lexer); // Crear el parser
-                Node astRoot = parser.parse(); // Analizar el código
-                parserOutput.setText(astRoot.toString()); // Mostrar el AST como resultado
+                // Análisis sintáctico y semántico
+                Parser parser = new Parser(tokens, symbolTable);
+                Node astRoot = parser.parse();
 
-                // Aquí puedes integrar el analizador semántico si es necesario.
-                semanticOutput.setText("Resultados del analizador semántico aquí...");
+                if (astRoot != null) {
+                    parserOutput.setText(astRoot.toString());
+                } else {
+                    parserOutput.setText("No se pudo generar el AST.");
+                }
+
+                // Mostrar errores semánticos
+                List<String> semanticErrors = parser.getSemanticErrors();
+                if (semanticErrors.isEmpty()) {
+                    semanticOutput.setText("No se encontraron errores semánticos.");
+                } else {
+                    StringBuilder semanticText = new StringBuilder();
+                    for (String error : semanticErrors) {
+                        semanticText.append(error).append("\n");
+                    }
+                    semanticOutput.setText(semanticText.toString());
+                }
+
             } catch (IOException ex) {
                 JOptionPane.showMessageDialog(this, "Error al cargar el archivo: " + ex.getMessage());
             } catch (Exception ex) {
@@ -107,6 +123,7 @@ public class CompilerGUI extends JFrame {
             }
         }
     }
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(CompilerGUI::new);
     }
