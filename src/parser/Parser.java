@@ -18,60 +18,61 @@ public class Parser {
         this.symbolTable = initialTable;
     }
 
-    // Cambiar el método parse para que devuelva un Node
     public Node parse() {
         List<Node> statements = new ArrayList<>();
         while (!isAtEnd()) {
-            statements.add(parseStatement());
+            Node stmt = parseStatement();
+            if (stmt != null) {
+                statements.add(stmt);
+            }
         }
-        return new BlockStatement(statements); // Devolver un bloque que contenga todas las declaraciones
+        return new BlockStatement(statements);
     }
 
     private Node parseStatement() {
         Token token = peek();
 
         if (token.getType() == TokenType.DATA_TYPE) {
-            return parseDeclaration(); // Devuelvo el nodo de declaración
+            return parseDeclaration();
         } else if (token.getType() == TokenType.IDENTIFIER) {
-            return parseAssignmentOrCall(); // Devuelvo el nodo de asignación o llamada
+            return parseAssignmentOrCall();
         } else if (token.getType() == TokenType.RESERVED && token.getValue().equals("if")) {
-            return parseIf(); // Devuelvo el nodo de if
+            return parseIf();
+        } else if (token.getType() == TokenType.RESERVED && token.getValue().equals("class")) {
+            return parseClass();
         } else if (token.getType() == TokenType.OPERATOR && token.getValue().equals("{")) {
-            enterScope(); // Entrar en un nuevo ámbito
-            advance(); // Consumir '{'
-            return null; // No devolvemos un nodo para bloques vacíos
+            enterScope();
+            advance();
+            return null;
         } else if (token.getType() == TokenType.OPERATOR && token.getValue().equals("}")) {
-            exitScope(); // Salir del ámbito
-            advance(); // Consumir '}'
-            return null; // No devolvemos un nodo para bloques vacíos
+            exitScope();
+            advance();
+            return null;
         } else {
-            advance(); // Ignora otros tokens
-            return null; // Si no se reconoce, devolvemos null
+            advance();
+            return null;
         }
     }
 
     private Node parseDeclaration() {
-        String type = advance().getValue(); // Tipo
+        String type = advance().getValue();
         Token identifier = advance();
 
         if (identifier.getType() == TokenType.IDENTIFIER) {
-            // Verifica si la variable ya está en el ámbito actual
             if (symbolTable.containsInCurrentScope(identifier.getValue())) {
                 semanticErrors.add("Error: Redefinición de variable '" + identifier.getValue() + "'");
-                return null; // No continuar con la declaración
+                return null;
             } else {
-                // Inserta la nueva variable en la tabla de símbolos
                 symbolTable.insert(identifier.getValue(), new Symbol(identifier.getValue(), type, "local"));
             }
         }
 
-        // Esperamos ";" u otra asignación
         while (!isAtEnd() && !peek().getValue().equals(";")) {
             advance();
         }
-        if (!isAtEnd()) advance(); // Consume el ;
+        if (!isAtEnd()) advance();
 
-        return new VariableDeclaration(type, identifier.getValue(), null); // Devuelve la declaración de variable
+        return new VariableDeclaration(type, identifier.getValue(), null);
     }
 
     private Node parseAssignmentOrCall() {
@@ -82,54 +83,46 @@ public class Parser {
             semanticErrors.add("Error: Variable '" + identifier.getValue() + "' no declarada");
         }
 
-        // Consume hasta el ;
         while (!isAtEnd() && !peek().getValue().equals(";")) {
             advance();
         }
-        if (!isAtEnd()) advance(); // Consume el ;
+        if (!isAtEnd()) advance();
 
-        return new ExpressionStatement(new VariableReference(identifier.getValue())); // Devuelve la referencia
+        return new ExpressionStatement(new VariableReference(identifier.getValue()));
     }
 
-    // Método para parsear expresiones primarias
     private Expression primaryExpression() {
         Token token = peek();
 
         if (token.getType() == TokenType.IDENTIFIER) {
-            advance(); // Consumir el identificador
-            return new VariableReference(token.getValue()); // Asegurarse de que sea un Expression
+            advance();
+            return new VariableReference(token.getValue());
         } else if (token.getType() == TokenType.NUMBER) {
-            advance(); // Consumir el número
-            return new NumberLiteral(Integer.parseInt(token.getValue())); // Asegurarse de que sea un Expression
+            advance();
+            return new NumberLiteral(Integer.parseInt(token.getValue()));
         } else if (token.getType() == TokenType.STRING) {
-            advance(); // Consumir la cadena
-            return new StringLiteral(token.getValue()); // Asegurarse de que sea un Expression
+            advance();
+            return new StringLiteral(token.getValue());
         } else {
             throw new RuntimeException("Unexpected token in expression: " + token);
         }
     }
 
-    private Token previous() {
-        return tokens.get(current - 1); // Devuelve el token anterior
-    }
-
     private Node parseIf() {
-        advance(); // Consumir 'if'
+        advance();
 
-        // Asegúrate de que hay un paréntesis de apertura
         if (match(TokenType.OPERATOR, "(")) {
-            Node condition = parseCondition(); // Definir la variable condition
+            Node condition = parseCondition();
 
-            // Asegúrate de que hay un paréntesis de cierre
             if (!match(TokenType.OPERATOR, ")")) {
                 throw new RuntimeException("Error: Se esperaba ')' después de la condición en 'if'.");
             }
 
-            Node thenBranch = parseBlock(); // Parsear el bloque 'then'
+            Node thenBranch = parseBlock();
 
             Node elseBranch = null;
             if (match(TokenType.RESERVED, "else")) {
-                elseBranch = parseBlock(); // Parsear el bloque 'else' si existe
+                elseBranch = parseBlock();
             }
 
             return new IfStatement(condition, thenBranch, elseBranch);
@@ -139,11 +132,11 @@ public class Parser {
     }
 
     private Node parseCondition() {
-        return expression(); // Puedes usar tu método de expresión para obtener la condición
+        return expression();
     }
 
     private Node expression() {
-        Expression left = primaryExpression(); // Obtener la expresión primaria
+        Expression left = primaryExpression();
 
         while (true) {
             if (match(TokenType.OPERATOR, "<") || match(TokenType.OPERATOR, ">") ||
@@ -154,24 +147,83 @@ public class Parser {
                 Expression right = primaryExpression();
                 left = new BinaryExpression(left, operator, right);
             } else {
-                break; // Salir del bucle si no hay más operadores
+                break;
             }
         }
 
-        return left; // Devolver la expresión
+        return left;
     }
 
-    // Método para parsear un bloque
     private Node parseBlock() {
         if (match(TokenType.OPERATOR, "{")) {
             List<Node> statements = new ArrayList<>();
+            enterScope();
             while (!isAtEnd() && !peek().getValue().equals("}")) {
-                statements.add(parseStatement());
+                Node stmt = parseStatement();
+                if (stmt != null) statements.add(stmt);
             }
-            advance(); // Consumir '}'
-            return new BlockStatement(statements); // Devolver el bloque
+            match(TokenType.OPERATOR, "}");
+            exitScope();
+            return new BlockStatement(statements);
         }
         throw new RuntimeException("Error: Se esperaba un bloque de código.");
+    }
+
+    private Node parseClass() {
+        advance();
+        Token className = advance();
+
+        if (!match(TokenType.OPERATOR, "{")) {
+            throw new RuntimeException("Error: Se esperaba '{' después del nombre de la clase.");
+        }
+
+        List<VariableDeclaration> fields = new ArrayList<>();
+        List<MethodDeclaration> methods = new ArrayList<>();
+
+        while (!isAtEnd() && !peek().getValue().equals("}")) {
+            Token next = peek();
+            if (next.getType() == TokenType.DATA_TYPE) {
+                Token lookahead = tokens.get(current + 2);
+                if (lookahead.getValue().equals("(")) {
+                    methods.add(parseMethodDeclaration());
+                } else {
+                    fields.add((VariableDeclaration) parseDeclaration());
+                }
+            } else {
+                advance();
+            }
+        }
+
+        match(TokenType.OPERATOR, "}");
+
+        return new ClassDeclaration(className.getValue(), fields, methods);
+    }
+
+    private MethodDeclaration parseMethodDeclaration() {
+        String returnType = advance().getValue();
+        String methodName = advance().getValue();
+
+        if (!match(TokenType.OPERATOR, "(")) {
+            throw new RuntimeException("Error: Se esperaba '(' en la declaración del método.");
+        }
+
+        List<VariableDeclaration> parameters = new ArrayList<>();
+
+        while (!peek().getValue().equals(")")) {
+            String paramType = advance().getValue();
+            String paramName = advance().getValue();
+            parameters.add(new VariableDeclaration(paramType, paramName, null));
+
+            if (!peek().getValue().equals(")")) {
+                match(TokenType.OPERATOR, ",");
+            }
+        }
+
+        match(TokenType.OPERATOR, ")");
+
+        BlockStatement body = (BlockStatement) parseBlock();
+
+        return new MethodDeclaration(returnType, methodName, parameters, body);
     }
 
     private void enterScope() {
@@ -194,6 +246,10 @@ public class Parser {
 
     private Token advance() {
         if (!isAtEnd()) current++;
+        return tokens.get(current - 1);
+    }
+
+    private Token previous() {
         return tokens.get(current - 1);
     }
 
