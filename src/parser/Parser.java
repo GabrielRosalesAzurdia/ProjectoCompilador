@@ -10,7 +10,7 @@ public class Parser {
     private final List<Token> tokens;
     private int current = 0;
 
-    private SymbolTable symbolTable; // Tabla activa
+    private SymbolTable symbolTable;
     private final List<String> semanticErrors = new ArrayList<>();
 
     public Parser(List<Token> tokens, SymbolTable initialTable) {
@@ -55,24 +55,34 @@ public class Parser {
     }
 
     private Node parseDeclaration() {
-        String type = advance().getValue();
-        Token identifier = advance();
+        String type = advance().getValue(); // tipo de dato
+        Token identifier = advance(); // nombre de variable
 
         if (identifier.getType() == TokenType.IDENTIFIER) {
             if (symbolTable.containsInCurrentScope(identifier.getValue())) {
                 semanticErrors.add("Error: Redefinición de variable '" + identifier.getValue() + "'");
-                return null;
             } else {
-                symbolTable.insert(identifier.getValue(), new Symbol(identifier.getValue(), type, "local"));
+                symbolTable.insert(identifier.getValue(), new Symbol(identifier.getValue(), type, "variable"));
             }
         }
 
+        Expression initializer = null;
+
+        if (match(TokenType.OPERATOR, "=")) {
+            initializer = parseExpression();
+            String valueType = evaluateExpressionType(initializer);
+            if (!type.equals(valueType)) {
+                semanticErrors.add("Error: No se puede asignar un valor de tipo '" + valueType + "' a una variable de tipo '" + type + "'");
+            }
+        }
+
+        // Consumir hasta el punto y coma
         while (!isAtEnd() && !peek().getValue().equals(";")) {
             advance();
         }
-        if (!isAtEnd()) advance();
+        if (!isAtEnd()) advance(); // consumir ;
 
-        return new VariableDeclaration(type, identifier.getValue(), null);
+        return new VariableDeclaration(type, identifier.getValue(), initializer);
     }
 
     private Node parseAssignmentOrCall() {
@@ -91,67 +101,26 @@ public class Parser {
         return new ExpressionStatement(new VariableReference(identifier.getValue()));
     }
 
-    private Expression primaryExpression() {
-        Token token = peek();
-
-        if (token.getType() == TokenType.IDENTIFIER) {
-            advance();
-            return new VariableReference(token.getValue());
-        } else if (token.getType() == TokenType.NUMBER) {
-            advance();
-            return new NumberLiteral(Integer.parseInt(token.getValue()));
-        } else if (token.getType() == TokenType.STRING) {
-            advance();
-            return new StringLiteral(token.getValue());
-        } else {
-            throw new RuntimeException("Unexpected token in expression: " + token);
-        }
-    }
-
     private Node parseIf() {
-        advance();
-
-        if (match(TokenType.OPERATOR, "(")) {
-            Node condition = parseCondition();
-
-            if (!match(TokenType.OPERATOR, ")")) {
-                throw new RuntimeException("Error: Se esperaba ')' después de la condición en 'if'.");
-            }
-
-            Node thenBranch = parseBlock();
-
-            Node elseBranch = null;
-            if (match(TokenType.RESERVED, "else")) {
-                elseBranch = parseBlock();
-            }
-
-            return new IfStatement(condition, thenBranch, elseBranch);
+        advance(); // consume 'if'
+        if (!match(TokenType.OPERATOR, "(")) {
+            throw new RuntimeException("Error: Se esperaba '(' después de 'if'.");
         }
 
-        throw new RuntimeException("Error: Se esperaba un '(' después de 'if'.");
-    }
+        Node condition = parseExpression();
 
-    private Node parseCondition() {
-        return expression();
-    }
-
-    private Node expression() {
-        Expression left = primaryExpression();
-
-        while (true) {
-            if (match(TokenType.OPERATOR, "<") || match(TokenType.OPERATOR, ">") ||
-                    match(TokenType.OPERATOR, "==") || match(TokenType.OPERATOR, "<=") ||
-                    match(TokenType.OPERATOR, ">=")) {
-
-                String operator = previous().getValue();
-                Expression right = primaryExpression();
-                left = new BinaryExpression(left, operator, right);
-            } else {
-                break;
-            }
+        if (!match(TokenType.OPERATOR, ")")) {
+            throw new RuntimeException("Error: Se esperaba ')' después de la condición.");
         }
 
-        return left;
+        Node thenBranch = parseBlock();
+        Node elseBranch = null;
+
+        if (match(TokenType.RESERVED, "else")) {
+            elseBranch = parseBlock();
+        }
+
+        return new IfStatement(condition, thenBranch, elseBranch);
     }
 
     private Node parseBlock() {
@@ -170,12 +139,16 @@ public class Parser {
     }
 
     private Node parseClass() {
-        advance();
+        advance(); // consume "class"
         Token className = advance();
+
+        symbolTable.insert(className.getValue(), new Symbol(className.getValue(), "class", "global"));
 
         if (!match(TokenType.OPERATOR, "{")) {
             throw new RuntimeException("Error: Se esperaba '{' después del nombre de la clase.");
         }
+
+        enterScope();
 
         List<VariableDeclaration> fields = new ArrayList<>();
         List<MethodDeclaration> methods = new ArrayList<>();
@@ -187,7 +160,8 @@ public class Parser {
                 if (lookahead.getValue().equals("(")) {
                     methods.add(parseMethodDeclaration());
                 } else {
-                    fields.add((VariableDeclaration) parseDeclaration());
+                    VariableDeclaration field = (VariableDeclaration) parseDeclaration();
+                    fields.add(field);
                 }
             } else {
                 advance();
@@ -195,6 +169,7 @@ public class Parser {
         }
 
         match(TokenType.OPERATOR, "}");
+        exitScope();
 
         return new ClassDeclaration(className.getValue(), fields, methods);
     }
@@ -203,16 +178,21 @@ public class Parser {
         String returnType = advance().getValue();
         String methodName = advance().getValue();
 
+        symbolTable.insert(methodName, new Symbol(methodName, returnType, "method"));
+
         if (!match(TokenType.OPERATOR, "(")) {
             throw new RuntimeException("Error: Se esperaba '(' en la declaración del método.");
         }
 
         List<VariableDeclaration> parameters = new ArrayList<>();
+        enterScope();
 
         while (!peek().getValue().equals(")")) {
             String paramType = advance().getValue();
             String paramName = advance().getValue();
+
             parameters.add(new VariableDeclaration(paramType, paramName, null));
+            symbolTable.insert(paramName, new Symbol(paramName, paramType, "parameter"));
 
             if (!peek().getValue().equals(")")) {
                 match(TokenType.OPERATOR, ",");
@@ -222,12 +202,101 @@ public class Parser {
         match(TokenType.OPERATOR, ")");
 
         BlockStatement body = (BlockStatement) parseBlock();
+        exitScope();
 
         return new MethodDeclaration(returnType, methodName, parameters, body);
     }
 
+    // -----------------------
+    // EXPRESIONES (con paréntesis y operadores)
+    // -----------------------
+
+    private Expression parseExpression() {
+        return parseEquality();
+    }
+
+    private Expression parseEquality() {
+        Expression expr = parseRelational();
+
+        while (match(TokenType.OPERATOR, "==") || match(TokenType.OPERATOR, "!=")) {
+            String operator = previous().getValue();
+            Expression right = parseRelational();
+            expr = new BinaryExpression(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    private Expression parseRelational() {
+        Expression expr = parseAdditionSubtraction();
+
+        while (match(TokenType.OPERATOR, "<") || match(TokenType.OPERATOR, ">") ||
+                match(TokenType.OPERATOR, "<=") || match(TokenType.OPERATOR, ">=")) {
+            String operator = previous().getValue();
+            Expression right = parseAdditionSubtraction();
+            expr = new BinaryExpression(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    private Expression parseAdditionSubtraction() {
+        Expression expr = parseMultiplicationDivision();
+
+        while (match(TokenType.OPERATOR, "+") || match(TokenType.OPERATOR, "-")) {
+            String operator = previous().getValue();
+            Expression right = parseMultiplicationDivision();
+            expr = new BinaryExpression(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    private Expression parseMultiplicationDivision() {
+        Expression expr = parsePrimary();
+
+        while (match(TokenType.OPERATOR, "*") || match(TokenType.OPERATOR, "/")) {
+            String operator = previous().getValue();
+            Expression right = parsePrimary();
+            expr = new BinaryExpression(expr, operator, right);
+        }
+
+        return expr;
+    }
+
+    private Expression parsePrimary() {
+        Token token = peek();
+
+        if (match(TokenType.OPERATOR, "(")) {
+            Expression expr = parseExpression();
+            if (!match(TokenType.OPERATOR, ")")) {
+                throw new RuntimeException("Error: Se esperaba ')' en expresión.");
+            }
+            return expr;
+        }
+
+        if (token.getType() == TokenType.NUMBER) {
+            advance();
+            return new NumberLiteral(Integer.parseInt(token.getValue()));
+        } else if (token.getType() == TokenType.STRING) {
+            advance();
+            return new StringLiteral(token.getValue());
+        } else if (token.getType() == TokenType.IDENTIFIER) {
+            advance();
+            return new VariableReference(token.getValue());
+        }
+
+        throw new RuntimeException("Token inesperado en expresión: " + token);
+    }
+
+    // -----------------------
+    // UTILIDADES
+    // -----------------------
+
     private void enterScope() {
-        symbolTable = new SymbolTable(symbolTable);
+        SymbolTable newScope = new SymbolTable(symbolTable);
+        symbolTable.addChild(newScope);
+        symbolTable = newScope;
     }
 
     private void exitScope() {
@@ -261,11 +330,40 @@ public class Parser {
         return false;
     }
 
+    private String evaluateExpressionType(Expression expr) {
+        if (expr instanceof NumberLiteral) {
+            return "int";
+        } else if (expr instanceof StringLiteral) {
+            return "String";
+        } else if (expr instanceof VariableReference) {
+            VariableReference ref = (VariableReference) expr;
+            Symbol symbol = symbolTable.lookup(ref.getName());
+            if (symbol != null) return symbol.getType();
+            else {
+                semanticErrors.add("Error: Variable '" + ref.getName() + "' usada sin declarar.");
+                return "unknown";
+            }
+        } else if (expr instanceof BinaryExpression) {
+            BinaryExpression bin = (BinaryExpression) expr;
+            String leftType = evaluateExpressionType(bin.getLeft());
+            String rightType = evaluateExpressionType(bin.getRight());
+            if (!leftType.equals(rightType)) {
+                semanticErrors.add("Error: Tipos incompatibles en operación binaria: " + leftType + " y " + rightType);
+            }
+            return leftType;
+        }
+        return "unknown";
+    }
+
     public List<String> getSemanticErrors() {
         return semanticErrors;
     }
 
-    public SymbolTable getSymbolTable() {
-        return symbolTable;
+    public SymbolTable getGlobalSymbolTable() {
+        SymbolTable root = symbolTable;
+        while (root.getParent() != null) {
+            root = root.getParent();
+        }
+        return root;
     }
 }

@@ -12,8 +12,10 @@ import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class CompilerGUI extends JFrame {
 
@@ -86,13 +88,6 @@ public class CompilerGUI extends JFrame {
 
                 // Obtener la tabla de símbolos
                 SymbolTable symbolTable = lexer.getSymbolTable();
-                StringBuilder symbolTableBuilder = new StringBuilder();
-                for (Symbol symbol : symbolTable.getAllSymbols().values()) {
-                    symbolTableBuilder.append(symbol.getName())
-                            .append(": Type = ").append(symbol.getType())
-                            .append(", Scope = ").append(symbol.getScope()).append("\n");
-                }
-                symbolTableOutput.setText(symbolTableBuilder.toString());
 
                 // Análisis sintáctico y semántico
                 Parser parser = new Parser(tokens, symbolTable);
@@ -103,6 +98,23 @@ public class CompilerGUI extends JFrame {
                 } else {
                     parserOutput.setText("No se pudo generar el AST.");
                 }
+
+                SymbolTable root = parser.getGlobalSymbolTable();
+                StringBuilder symbolTableBuilder = new StringBuilder();
+
+                Set<String> seen = new HashSet<>();
+
+                for (SymbolTable table : root.getAllTables()) {
+                    for (Symbol symbol : table.getAllSymbols().values()) {
+                        String entry = symbol.getName() + ": Type = " + symbol.getType() + ", Scope = " + symbol.getScope();
+                        if (!seen.contains(entry)) {
+                            seen.add(entry);
+                            symbolTableBuilder.append(entry).append("\n");
+                        }
+                    }
+                }
+
+                symbolTableOutput.setText(symbolTableBuilder.toString());
 
                 // Mostrar errores semánticos
                 List<String> semanticErrors = parser.getSemanticErrors();

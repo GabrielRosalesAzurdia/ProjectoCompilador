@@ -1,11 +1,14 @@
 package symboltable;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class SymbolTable {
     private Map<String, Symbol> symbols;
     private SymbolTable parent;
+    private List<SymbolTable> children = new ArrayList<>();
 
     public SymbolTable(SymbolTable parent) {
         this.symbols = new HashMap<>();
@@ -47,10 +50,28 @@ public class SymbolTable {
         for (Map.Entry<String, Symbol> entry : symbols.entrySet()) {
             System.out.println(indent + entry.getKey() + " -> " + entry.getValue());
         }
-        if (parent != null) {
-            System.out.println(indent + "↑ Parent Scope:");
-            parent.printTable(indent + "  ");
+        for (SymbolTable child : children) {
+            System.out.println(indent + "↓ Child Scope:");
+            child.printTable(indent + "  ");
         }
+    }
+
+    public void addChild(SymbolTable child) {
+        children.add(child);
+    }
+
+    public List<SymbolTable> getChildren() {
+        return children;
+    }
+
+    // Devuelve TODAS las tablas (esta y las hijas recursivamente)
+    public List<SymbolTable> getAllTables() {
+        List<SymbolTable> all = new ArrayList<>();
+        all.add(this);
+        for (SymbolTable child : children) {
+            all.addAll(child.getAllTables());
+        }
+        return all;
     }
 
     public Map<String, Symbol> getAllSymbols() {
