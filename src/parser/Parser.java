@@ -38,6 +38,20 @@ public class Parser {
             return parseAssignmentOrCall();
         } else if (token.getType() == TokenType.RESERVED && token.getValue().equals("if")) {
             return parseIf();
+        } else if (token.getType() == TokenType.RESERVED && token.getValue().equals("while")) {
+            return parseWhile();
+        } else if (token.getType() == TokenType.RESERVED && token.getValue().equals("for")) {
+            return parseFor();
+        } else if (token.getType() == TokenType.RESERVED && token.getValue().equals("return")) {
+            return parseReturn();
+        } else if (token.getType() == TokenType.RESERVED && token.getValue().equals("break")) {
+            advance();
+            match(TokenType.OPERATOR, ";");
+            return new BreakStatement();
+        } else if (token.getType() == TokenType.RESERVED && token.getValue().equals("continue")) {
+            advance();
+            match(TokenType.OPERATOR, ";");
+            return new ContinueStatement();
         } else if (token.getType() == TokenType.RESERVED && token.getValue().equals("class")) {
             return parseClass();
         } else if (token.getType() == TokenType.OPERATOR && token.getValue().equals("{")) {
@@ -52,6 +66,59 @@ public class Parser {
             advance();
             return null;
         }
+    }
+
+    private Node parseWhile() {
+        advance(); // consume 'while'
+        if (!match(TokenType.OPERATOR, "(")) {
+            throw new RuntimeException("Error: Se esperaba '(' después de 'while'.");
+        }
+        Expression condition = parseExpression();
+        if (!match(TokenType.OPERATOR, ")")) {
+            throw new RuntimeException("Error: Se esperaba ')' después de la condición.");
+        }
+        BlockStatement body = (BlockStatement) parseBlock();
+        return new WhileStatement(condition, body);
+    }
+
+    private Node parseFor() {
+        advance(); // consume 'for'
+        if (!match(TokenType.OPERATOR, "(")) {
+            throw new RuntimeException("Error: Se esperaba '(' después de 'for'.");
+        }
+
+        VariableDeclaration initializer = null;
+        if (!peek().getValue().equals(";")) {
+            initializer = (VariableDeclaration) parseDeclaration();
+        } else {
+            match(TokenType.OPERATOR, ";");
+        }
+
+        Expression condition = null;
+        if (!peek().getValue().equals(";")) {
+            condition = parseExpression();
+        }
+        match(TokenType.OPERATOR, ";");
+
+        Expression update = null;
+        if (!peek().getValue().equals(")")) {
+            update = parseExpression();
+        }
+        match(TokenType.OPERATOR, ")");
+
+        BlockStatement body = (BlockStatement) parseBlock();
+
+        return new ForStatement(initializer, condition, update, body);
+    }
+
+    private Node parseReturn() {
+        advance(); // consume 'return'
+        Expression value = null;
+        if (!peek().getValue().equals(";")) {
+            value = parseExpression();
+        }
+        match(TokenType.OPERATOR, ";");
+        return new ReturnStatement(value);
     }
 
     private Node parseDeclaration() {
@@ -253,12 +320,31 @@ public class Parser {
     }
 
     private Expression parseMultiplicationDivision() {
-        Expression expr = parsePrimary();
-
+        Expression expr = parseUnary();
         while (match(TokenType.OPERATOR, "*") || match(TokenType.OPERATOR, "/")) {
             String operator = previous().getValue();
-            Expression right = parsePrimary();
+            Expression right = parseUnary();
             expr = new BinaryExpression(expr, operator, right);
+        }
+        return expr;
+    }
+
+    private Expression parseUnary() {
+        if (match(TokenType.OPERATOR, "-") || match(TokenType.OPERATOR, "!")) {
+            String operator = previous().getValue();
+            Expression right = parseUnary();
+            return new UnaryExpression(operator, right);
+        }
+
+        return parsePostfix();
+    }
+
+    private Expression parsePostfix() {
+        Expression expr = parsePrimary();
+
+        while (match(TokenType.OPERATOR, "++") || match(TokenType.OPERATOR, "--")) {
+            String operator = previous().getValue();
+            expr = new PostfixExpression(expr, operator);  // debes crear esta clase
         }
 
         return expr;

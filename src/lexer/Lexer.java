@@ -15,9 +15,10 @@ public class Lexer {
             "\\s*(?:(\\d+)|" +
                     "(\"[^\"]*\")|" +
                     "(\\w+)|" +
-                    "(==|!=|<=|>=|<|>|\\+|\\-|\\*|\\/|=|\\{|\\}|\\(|\\)|;|\\.|\\,)|" +
+                    "(\\+\\+|\\-\\-|==|!=|<=|>=|<|>|\\+|\\-|\\*|\\/|=|\\{|\\}|\\(|\\)|;|\\.|\\,)|" +
                     "(\\S))"
     );
+
 
     private static final Set<String> RESERVED_WORDS = new HashSet<>(Arrays.asList(
             "if", "else", "for", "while", "do", "switch", "case", "break", "continue",
@@ -29,12 +30,20 @@ public class Lexer {
     ));
 
     public Lexer(String input) {
-        this.input = input;
+        this.input = removeComments(input);
         this.tokens = new ArrayList<>();
         this.symbolTable = new SymbolTable(null);  // null = no padre, raíz del ámbito
         // Cargar símbolos predefinidos
         symbolTable.insert("System", new Symbol("System", "class", "global"));
         symbolTable.insert("println", new Symbol("println", "method", "global"));
+    }
+
+    private String removeComments(String code) {
+        // Elimina comentarios multilínea /* ... */
+        code = code.replaceAll("/\\*.*?\\*/", ""); // modo DOTALL no necesario si se usa (?s)
+        // Elimina comentarios de línea //...
+        code = code.replaceAll("//.*", "");
+        return code;
     }
 
     public List<Token> tokenize() {
