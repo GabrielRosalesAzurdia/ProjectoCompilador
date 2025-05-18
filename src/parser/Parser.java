@@ -9,6 +9,7 @@ import java.util.*;
 public class Parser {
     private final List<Token> tokens;
     private int current = 0;
+    List<Symbol> parameters = new ArrayList<>();
 
     private SymbolTable symbolTable;
     private final List<String> semanticErrors = new ArrayList<>();
@@ -31,8 +32,15 @@ public class Parser {
 
     private Node parseStatement() {
         Token token = peek();
-
-        if (token.getType() == TokenType.DATA_TYPE) {
+        if (token.getType() == TokenType.DATA_TYPE || (token.getType() == TokenType.RESERVED && token.getValue().equals("void"))) {
+            // Lookahead para ver si es una función
+            if (tokens.size() > current + 2 && tokens.get(current + 2).getValue().equals("(")) {
+                return parseMethodDeclaration(); // ahora se permite globalmente
+            } else {
+                return parseDeclaration();
+            }
+        }
+        else if (token.getType() == TokenType.DATA_TYPE) {
             return parseDeclaration();
         } else if (token.getType() == TokenType.IDENTIFIER) {
             return parseAssignmentOrCall();
@@ -157,16 +165,30 @@ public class Parser {
         Symbol symbol = symbolTable.lookup(identifier.getValue());
 
         if (symbol == null) {
-            semanticErrors.add("Error: Variable '" + identifier.getValue() + "' no declarada");
+            semanticErrors.add("Error: Símbolo '" + identifier.getValue() + "' no declarado");
         }
 
-        while (!isAtEnd() && !peek().getValue().equals(";")) {
-            advance();
+        if (match(TokenType.OPERATOR, "(")) {
+            // Llamada a función
+            List<Expression> args = new ArrayList<>();
+            if (!peek().getValue().equals(")")) {
+                do {
+                    args.add(parseExpression());
+                } while (match(TokenType.OPERATOR, ","));
+            }
+            match(TokenType.OPERATOR, ")");
+            match(TokenType.OPERATOR, ";");
+            return new ExpressionStatement(new FunctionCall(identifier.getValue(), args));
+        } else {
+            // Solo referencia o asignación (puedes extender esto si soportas asignaciones reales)
+            while (!isAtEnd() && !peek().getValue().equals(";")) {
+                advance();
+            }
+            if (!isAtEnd()) advance(); // consumir ;
+            return new ExpressionStatement(new VariableReference(identifier.getValue()));
         }
-        if (!isAtEnd()) advance();
-
-        return new ExpressionStatement(new VariableReference(identifier.getValue()));
     }
+
 
     private Node parseIf() {
         advance(); // consume 'if'
